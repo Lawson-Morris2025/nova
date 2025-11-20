@@ -123,6 +123,19 @@
                    <p class="text-[10px] text-blue-200/80 leading-tight"><strong>Cloud Sync:</strong> Your account and chats are securely synced to the cloud. Log in from any device to access your history.</p>
                 </div>
             </div>
+            
+            <!-- Email Confirmation Message (Hidden by default) -->
+            <div id="email-confirmation-message" class="hidden flex flex-col items-center text-center space-y-4 animate-fade-in">
+                <div class="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center">
+                    <i data-lucide="mail-check" class="text-emerald-500 w-8 h-8"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-white">Check your inbox</h3>
+                    <p class="text-sm text-gray-400 mt-2">We've sent a confirmation link to your email address. Please click it to verify your account.</p>
+                </div>
+                <button onclick="location.reload()" class="text-sm text-primary-400 hover:text-primary-300 mt-4">Back to Sign In</button>
+            </div>
+
             <form id="auth-form" class="space-y-4">
                 <div id="name-field" class="hidden">
                     <label class="block text-xs font-medium text-gray-400 mb-1.5 ml-1">Full Name</label>
@@ -396,6 +409,12 @@
                 });
                 
                 if (error) throw new Error(error.message);
+                
+                // Check if email confirmation is required (user created but no session)
+                if (data.user && !data.session) {
+                    return { requiresConfirmation: true };
+                }
+                
                 if (data.user) {
                     // Create Profile Entry
                     const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff`;
@@ -414,8 +433,18 @@
                 const { data, error } = await sb.auth.signInWithPassword({ email, password });
                 if (error) throw new Error(error.message);
                 
-                // Fetch Profile
+                // Fetch Profile (if it exists)
                 const { data: profile } = await sb.from('profiles').select('*').eq('id', data.user.id).single();
+                
+                // If verification happened but profile wasn't created (edge case), handle gracefully
+                if (!profile && data.user) {
+                     return { 
+                        ...data.user, 
+                        name: data.user.user_metadata?.name || email.split('@')[0],
+                        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.user.email)}&background=random`
+                     };
+                }
+                
                 return { ...data.user, ...(profile || {}) };
             },
             
@@ -546,7 +575,8 @@
             persona: 'standard',
             webSearch: false,
             attachments: [],
-            isSidebarOpen: false
+            isSidebarOpen: false,
+            isLoading: false
         };
 
         let els = {};
@@ -659,6 +689,7 @@
                     const nameInput = document.getElementById('input-name');
                     const name = nameInput ? nameInput.value : '';
                     const errorEl = document.getElementById('auth-error');
+                    const submitBtn = document.getElementById('auth-submit-btn');
                     
                     if (!isCaptchaVerified) {
                         errorEl.querySelector('span').textContent = "Please verify you are not a robot.";
@@ -670,16 +701,34 @@
                         errorEl.classList.remove('hidden');
                         return;
                     }
+                    
                     try {
+                        // Show loading
+                        submitBtn.disabled = true;
+                        submitBtn.innerHTML = '<i data-lucide="loader-2" class="animate-spin w-5 h-5"></i>';
+                        if (typeof lucide !== 'undefined') lucide.createIcons();
+                        
                         let user;
-                        // Switch buttons to loading state if needed
-                        if(isRegisterMode) user = await storageService.register(name, email, password);
-                        else user = await storageService.login(email, password);
+                        if(isRegisterMode) {
+                            const result = await storageService.register(name, email, password);
+                            if (result.requiresConfirmation) {
+                                document.getElementById('auth-form').classList.add('hidden');
+                                document.getElementById('toggle-auth-mode').parentElement.classList.add('hidden');
+                                document.getElementById('login-subtitle').classList.add('hidden');
+                                document.getElementById('email-confirmation-message').classList.remove('hidden');
+                                return;
+                            }
+                            user = result;
+                        } else {
+                            user = await storageService.login(email, password);
+                        }
                         
                         loginUser(user);
                     } catch(err) {
                         errorEl.querySelector('span').textContent = err.message;
                         errorEl.classList.remove('hidden');
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<span>' + (isRegisterMode ? "Create Account" : "Sign In") + '</span>';
                     }
                 });
             }
@@ -703,6 +752,7 @@
                          const base64 = evt.target.result.split(',')[1];
                          state.attachments.push({ mimeType: file.type, data: base64 });
                          renderAttachments();
+                         checkInputState();
                      };
                      reader.readAsDataURL(file);
                  }
@@ -734,7 +784,16 @@
             });
 
             if(els.sendBtn) els.sendBtn.addEventListener('click', sendMessage);
-            if(els.input) els.input.addEventListener('keydown', (e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+            if(els.input) {
+                els.input.addEventListener('keydown', (e) => { 
+                    if(e.key === 'Enter' && !e.shiftKey) { 
+                        e.preventDefault(); 
+                        sendMessage(); 
+                    } 
+                });
+                // Check input state on typing
+                els.input.addEventListener('input', checkInputState);
+            }
 
             // Settings
             if(document.getElementById('user-profile-btn')) document.getElementById('user-profile-btn').addEventListener('click', () => els.settingsModal && els.settingsModal.classList.remove('hidden'));
@@ -870,16 +929,46 @@
             // Update Profile UI
             if(document.getElementById('user-name-display')) document.getElementById('user-name-display').textContent = user.name || user.email.split('@')[0];
             if(document.getElementById('user-email-display')) document.getElementById('user-email-display').textContent = user.email;
-            if(document.getElementById('user-avatar-display')) document.getElementById('user-avatar-display').textContent = (user.name || user.email).charAt(0).toUpperCase();
+            if(document.getElementById('user-avatar-display')) {
+                if (user.avatar && user.avatar.startsWith('http')) {
+                    document.getElementById('user-avatar-display').innerHTML = `<img src="${user.avatar}" class="w-full h-full rounded-full object-cover">`;
+                } else {
+                    document.getElementById('user-avatar-display').textContent = (user.name || user.email).charAt(0).toUpperCase();
+                }
+            }
             if(document.getElementById('modal-name')) document.getElementById('modal-name').textContent = user.name || user.email.split('@')[0];
             if(document.getElementById('modal-email')) document.getElementById('modal-email').textContent = user.email;
-            if(document.getElementById('modal-avatar')) document.getElementById('modal-avatar').textContent = (user.name || user.email).charAt(0).toUpperCase();
+            if(document.getElementById('modal-avatar')) {
+                 if (user.avatar && user.avatar.startsWith('http')) {
+                    document.getElementById('modal-avatar').innerHTML = `<img src="${user.avatar}" class="w-full h-full rounded-full object-cover">`;
+                } else {
+                    document.getElementById('modal-avatar').textContent = (user.name || user.email).charAt(0).toUpperCase();
+                }
+            }
 
             await loadSessions();
 
             // Check Onboarding
             if (!storageService.hasSeenOnboarding()) {
                 showOnboarding();
+            }
+        }
+        
+        function checkInputState() {
+            if(!els.sendBtn) return;
+            
+            const text = els.input ? els.input.value.trim() : '';
+            const hasAttachments = state.attachments.length > 0;
+            const shouldEnable = (text.length > 0 || hasAttachments) && !state.isLoading;
+            
+            els.sendBtn.disabled = !shouldEnable;
+            
+            if (shouldEnable) {
+                els.sendBtn.classList.remove('bg-gray-800', 'text-gray-600', 'cursor-not-allowed');
+                els.sendBtn.classList.add('bg-primary-600', 'hover:bg-primary-500', 'text-white', 'shadow-lg', 'shadow-primary-600/20');
+            } else {
+                els.sendBtn.classList.add('bg-gray-800', 'text-gray-600', 'cursor-not-allowed');
+                els.sendBtn.classList.remove('bg-primary-600', 'hover:bg-primary-500', 'text-white', 'shadow-lg', 'shadow-primary-600/20');
             }
         }
 
@@ -1028,7 +1117,7 @@
             if((!text && !state.attachments.length) || state.isLoading) return;
             
             state.isLoading = true;
-            updateInputState();
+            checkInputState();
 
             // Add User Message
             const userMsg = { id: Date.now().toString(), role: 'user', text, attachments: [...state.attachments], timestamp: Date.now() };
@@ -1093,7 +1182,7 @@
             }
             
             state.isLoading = false;
-            updateInputState();
+            checkInputState();
         }
 
         window.regenerate = async () => {
@@ -1107,7 +1196,7 @@
             if(!userMsg || userMsg.role !== 'user') return; // Safety check
 
             state.isLoading = true;
-            updateInputState();
+            checkInputState();
 
             // Add new placeholder
             const botMsgId = (Date.now()+1).toString();
@@ -1146,7 +1235,7 @@
                 renderMessages();
             }
             state.isLoading = false;
-            updateInputState();
+            checkInputState();
         };
 
         function saveCurrentSession() {
@@ -1160,14 +1249,6 @@
                 storageService.saveSession(s);
                 renderSidebar();
             }
-        }
-
-        function updateInputState() {
-            if(!els.sendBtn) return;
-            els.sendBtn.disabled = state.isLoading;
-            els.sendBtn.innerHTML = state.isLoading ? '<i data-lucide="loader-2" class="animate-spin w-4 h-4"></i>' : '<i data-lucide="send" class="w-4 h-4"></i>';
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-            if(els.input) els.input.disabled = state.isLoading;
         }
 
         function renderAttachments() {
@@ -1188,6 +1269,7 @@
         window.removeAttachment = (idx) => {
             state.attachments.splice(idx, 1);
             renderAttachments();
+            checkInputState();
         }
 
         // Sidebar Toggle
