@@ -158,6 +158,14 @@
                         <input type="password" id="input-password" required class="w-full bg-gray-950 border border-gray-800 text-white rounded-xl py-2.5 pl-10 pr-4 focus:outline-none focus:border-primary-500 transition-colors placeholder-gray-600" placeholder="••••••••">
                     </div>
                 </div>
+
+                <!-- Keep me signed in checkbox -->
+                <div id="remember-me-container" class="flex items-center space-x-2 mt-1 px-1 cursor-pointer">
+                    <div id="remember-me-box" class="w-4 h-4 rounded border border-primary-600 bg-primary-600 flex items-center justify-center transition-colors">
+                        <i data-lucide="check" class="text-white w-3 h-3"></i>
+                    </div>
+                    <span class="text-xs text-gray-400 select-none hover:text-gray-300 transition-colors">Keep me signed in</span>
+                </div>
                 
                 <!-- Fake Captcha -->
                 <div id="captcha-container" class="flex items-center p-3 rounded-xl border border-gray-700 bg-gray-950 cursor-pointer transition-all select-none hover:border-gray-600">
@@ -635,6 +643,7 @@
                     isRegisterMode = !isRegisterMode;
                     if(document.getElementById('name-field')) document.getElementById('name-field').classList.toggle('hidden', !isRegisterMode);
                     if(document.getElementById('terms-container')) document.getElementById('terms-container').classList.toggle('hidden', !isRegisterMode);
+                    if(document.getElementById('remember-me-container')) document.getElementById('remember-me-container').classList.toggle('hidden', isRegisterMode);
                     if(document.getElementById('login-subtitle')) document.getElementById('login-subtitle').textContent = isRegisterMode ? "Create a private account" : "Sign in to continue";
                     if(document.getElementById('auth-submit-btn')) document.getElementById('auth-submit-btn').querySelector('span').textContent = isRegisterMode ? "Create Account" : "Sign In";
                     e.target.textContent = isRegisterMode ? "Already have an account? Sign In" : "Don't have an account? Sign Up";
@@ -654,6 +663,23 @@
                 isTermsAccepted = !isTermsAccepted;
                 updateTermsCheckbox();
             });
+
+            if(document.getElementById('remember-me-container')) {
+                document.getElementById('remember-me-container').addEventListener('click', () => {
+                    isRememberChecked = !isRememberChecked;
+                    const box = document.getElementById('remember-me-box');
+                    if(isRememberChecked) {
+                        box.classList.remove('bg-gray-950', 'border-gray-600');
+                        box.classList.add('bg-primary-600', 'border-primary-600');
+                        box.innerHTML = '<i data-lucide="check" class="text-white w-3 h-3"></i>';
+                    } else {
+                        box.classList.add('bg-gray-950', 'border-gray-600');
+                        box.classList.remove('bg-primary-600', 'border-primary-600');
+                        box.innerHTML = '';
+                    }
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                });
+            }
 
             if(document.getElementById('captcha-container')) {
                 document.getElementById('captcha-container').addEventListener('click', function() {
@@ -903,6 +929,7 @@
         let isRegisterMode = false;
         let isCaptchaVerified = false;
         let isTermsAccepted = false;
+        let isRememberChecked = true;
 
         function updateTermsCheckbox() {
             const box = document.getElementById('terms-checkbox');
