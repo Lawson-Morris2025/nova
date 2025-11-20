@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="https://upload.wikimedia.org/wikipedia/commons/8/8a/Google_Gemini_logo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Nova Ai</title>
+    <meta name="description" content="A capable, multimodal AI assistant powered by Google Gemini 2.5, featuring real-time streaming, web search grounding, and image analysis." />
+    
+    <!-- PWA Manifest & Icons -->
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="apple-touch-icon" href="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Google_Gemini_logo.svg/192px-Google_Gemini_logo.svg.png" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#0b0f19" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Nova Assistant" />
+    <meta property="og:description" content="Experience the power of Gemini 2.5 with Nova. Real-time AI chat and code assistance." />
+    <meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/8/8a/Google_Gemini_logo.svg" />
+
+    <script>
+      window.process = window.process || { env: {} };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              gray: { 850: '#1f2937', 900: '#111827', 950: '#0b0f19' },
+              primary: { 500: '#3b82f6', 600: '#2563eb' }
+            },
+            animation: {
+              'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      html, body { background-color: #0b0f19; color: #f3f4f6; height: 100%; width: 100%; overflow: hidden; }
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
+      .typing-dot { width: 6px; height: 6px; background-color: #9ca3af; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; }
+      .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+      .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+      @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+      .fade-in { animation: fadeIn 0.3s ease-in-out; }
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      .markdown-content code { background-color: #1f2937; padding: 0.1em 0.3em; border-radius: 0.2em; font-family: monospace; font-size: 0.9em; color: #93c5fd; }
+      .markdown-content pre { background-color: #111827; padding: 1em; border-radius: 0.5em; overflow-x: auto; margin: 0.5em 0; border: 1px solid #374151; }
+      .markdown-content pre code { background-color: transparent; padding: 0; color: #e5e7eb; font-size: 0.85em; }
+      .markdown-content strong { color: white; font-weight: bold; }
+      .markdown-content a { color: #60a5fa; text-decoration: none; }
+      .markdown-content a:hover { text-decoration: underline; }
+      .markdown-content p { margin-bottom: 0.5em; line-height: 1.6; }
+      .markdown-content h1 { font-size: 1.5em; font-weight: bold; margin-top: 0.8em; margin-bottom: 0.4em; color: white; }
+      .markdown-content h2 { font-size: 1.25em; font-weight: bold; margin-top: 0.8em; margin-bottom: 0.4em; color: white; }
+      .markdown-content ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 0.5em; }
+      .markdown-content ol { list-style-type: decimal; padding-left: 1.5em; margin-bottom: 0.5em; }
+    </style>
+    <!-- Import Map for Google GenAI SDK -->
+    <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
+  }
+}
+</script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body class="bg-gray-950 text-gray-100 font-sans selection:bg-primary-500/30">
+
+    <!-- SPLASH SCREEN -->
+    <div id="splash-screen" class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#0b0f19]">
+        <div class="absolute top-1/4 left-1/4 w-64 h-64 bg-primary-600/20 rounded-full blur-[100px]"></div>
+        <div class="absolute bottom-1/4 right-1/4 w-64 h-64 bg-purple-600/20 rounded-full blur-[100px]"></div>
+        <div class="relative z-10 flex flex-col items-center fade-in">
+            <div class="w-24 h-24 bg-gradient-to-br from-primary-500 to-purple-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-primary-500/40 mb-8 animate-bounce">
+               <i data-lucide="sparkles" class="text-white w-12 h-12"></i>
+            </div>
+            <h1 class="text-5xl font-bold text-white tracking-tight mb-3">Nova AI</h1>
+            <p class="text-gray-400 text-sm font-medium tracking-wide uppercase">Created by Lawson Morris</p>
+            <div class="mt-10">
+              <i data-lucide="loader-2" class="text-primary-500 animate-spin w-8 h-8"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen" class="hidden min-h-screen w-full bg-gray-950 flex items-center justify-center p-4 relative overflow-hidden">
+        <div class="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-primary-600/20 rounded-full blur-[120px]"></div>
+        <div class="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-purple-600/20 rounded-full blur-[120px]"></div>
+        <div class="relative z-10 max-w-md w-full bg-gray-900/80 backdrop-blur-xl border border-gray-800 p-8 rounded-3xl shadow-2xl">
+            <div class="flex flex-col items-center text-center mb-8">
+                <div class="w-14 h-14 bg-gradient-to-br from-primary-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-primary-500/30 mb-4">
+                    <i data-lucide="sparkles" class="text-white w-7 h-7"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-white tracking-tight">Welcome to Nova</h1>
+                <p id="login-subtitle" class="text-gray-400 text-sm mt-1">Sign in to continue</p>
+                <div class="mt-3 flex items-start gap-2 text-left bg-blue-900/20 border border-blue-800/50 p-2.5 rounded-lg">
+                   <i data-lucide="info" class="text-blue-400 w-4 h-4 mt-0.5 flex-shrink-0"></i>
+                   <p class="text-[10px] text-blue-200/80 leading-tight"><strong>Note:</strong> Nova runs entirely in your browser. Accounts are stored locally on this device.</p>
+                </div>
+            </div>
+            <form id="auth-form" class="space-y-4">
+                <div id="name-field" class="hidden">
+                    <label class="block text-xs font-medium text-gray-400 mb-1.5 ml-1">Full Name</label>
+                    <div class="relative">
+                        <i data-lucide="user" class="absolute left-3 top-3 text-gray-500 w-4 h-4"></i>
+                        <input type="text" id="input-name" class="w-full bg-gray-950 border border-gray-800 text-white rounded-xl py-2.5 pl-10 pr-4 focus:outline-none focus:border-primary-500 transition-colors placeholder-gray-600" placeholder="John Doe">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1.5 ml-1">Email Address</label>
+                    <div class="relative">
+                        <i data-lucide="mail" class="absolute left-3 top-3 text-gray-500 w-4 h-4"></i>
+                        <input type="email" id="input-email" required class="w-full bg-gray-950 border border-gray-800 text-white rounded-xl py-2.5 pl-10 pr-4 focus:outline-none focus:border-primary-500 transition-colors placeholder-gray-600" placeholder="you@example.com">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1.5 ml-1">Password</label>
+                    <div class="relative">
+                        <i data-lucide="shield-check" class="absolute left-3 top-3 text-gray-500 w-4 h-4"></i>
+                        <input type="password" id="input-password" required class="w-full bg-gray-950 border border-gray-800 text-white rounded-xl py-2.5 pl-10 pr-4 focus:outline-none focus:border-primary-500 transition-colors placeholder-gray-600" placeholder="••••••••">
+                    </div>
+                </div>
+                <!-- Fake Captcha -->
+                <div id="captcha-container" class="flex items-center p-3 rounded-xl border border-gray-700 bg-gray-950 cursor-pointer transition-all select-none hover:border-gray-600">
+                    <div id="captcha-box" class="w-6 h-6 rounded border border-gray-600 bg-gray-800 flex items-center justify-center mr-3 transition-colors">
+                         <i data-lucide="check" class="text-white w-4 h-4 hidden"></i>
+                    </div>
+                    <span id="captcha-text" class="text-sm text-gray-400">I am not a robot</span>
+                    <div class="ml-auto opacity-50 grayscale">
+                        <img src="https://www.gstatic.com/recaptcha/api2/logo_48.png" alt="captcha" class="w-8">
+                    </div>
+                </div>
+                
+                <div id="auth-error" class="hidden flex items-center text-red-400 text-xs bg-red-500/10 p-3 rounded-lg border border-red-500/20">
+                    <i data-lucide="alert-circle" class="w-4 h-4 mr-2 flex-shrink-0"></i>
+                    <span id="auth-error-text"></span>
+                </div>
+
+                <button type="submit" id="auth-submit-btn" class="w-full bg-primary-600 hover:bg-primary-500 text-white font-medium py-3 px-4 rounded-xl transition-colors shadow-lg shadow-primary-600/20 mt-2 flex justify-center items-center">
+                    <span>Sign In</span>
+                </button>
+            </form>
+            <div class="text-center pt-2">
+                <button id="toggle-auth-mode" class="text-xs text-gray-500 hover:text-primary-400 transition-colors">Don't have an account? Sign Up</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- APP SCREEN -->
+    <div id="app-screen" class="hidden flex h-screen bg-gray-950 text-gray-100 relative overflow-hidden">
+        
+        <!-- SIDEBAR -->
+        <div id="sidebar" class="hidden lg:flex flex-col w-72 h-full border-r border-gray-800 bg-gray-950 p-4 z-20 absolute lg:relative transform transition-transform lg:transform-none -translate-x-full lg:translate-x-0">
+            <div class="flex items-center space-x-3 mb-6 px-2">
+                <div class="w-8 h-8 bg-gradient-to-br from-primary-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg shadow-primary-500/20">
+                    <i data-lucide="zap" class="text-white fill-white w-4 h-4"></i>
+                </div>
+                <h1 class="text-xl font-bold tracking-tight text-white">Nova <span class="text-primary-500">AI</span></h1>
+                <button id="close-sidebar-mobile" class="lg:hidden ml-auto text-gray-400"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <button id="btn-new-chat" class="flex items-center justify-center space-x-2 w-full bg-gray-900 hover:bg-gray-800 text-white py-3 px-4 rounded-xl border border-gray-800 transition-all mb-6 group">
+                <i data-lucide="plus" class="w-4 h-4 group-hover:rotate-90 transition-transform duration-300"></i>
+                <span class="font-medium">New Chat</span>
+            </button>
+            <div class="flex-1 overflow-y-auto -mx-2 px-2">
+                <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 px-2">Recent Chats</div>
+                <div id="session-list" class="space-y-1">
+                    <!-- Session items injected here -->
+                </div>
+            </div>
+            <div class="mt-auto pt-4 border-t border-gray-800 space-y-2">
+                <button id="btn-tutorial" class="flex items-center space-x-3 w-full px-3 py-2 text-gray-400 hover:text-white hover:bg-gray-900 rounded-lg transition-colors group">
+                    <i data-lucide="book-open" class="w-4 h-4 group-hover:text-primary-400"></i>
+                    <span class="text-sm font-medium">Tutorial & Intro</span>
+                </button>
+                <div id="user-profile-btn" class="flex items-center justify-between p-2 rounded-xl bg-gray-900/50 border border-gray-800 hover:border-gray-700 transition-colors cursor-pointer">
+                    <div class="flex items-center min-w-0">
+                        <div id="user-avatar-display" class="w-9 h-9 rounded-full bg-primary-600 flex items-center justify-center text-white font-bold text-sm border border-gray-700">U</div>
+                        <div class="ml-3 min-w-0">
+                            <p id="user-name-display" class="text-sm font-medium text-white truncate w-24">User</p>
+                            <p id="user-email-display" class="text-xs text-gray-500 truncate w-24">email</p>
+                        </div>
+                    </div>
+                    <i data-lucide="settings" class="w-4 h-4 text-gray-500"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAIN CHAT AREA -->
+        <div class="flex-1 flex flex-col relative w-full min-w-0 h-full">
+            <!-- Mobile Header -->
+            <div class="lg:hidden flex items-center justify-between p-4 border-b border-gray-800 bg-gray-950 z-10">
+                <button id="open-sidebar" class="text-gray-400 hover:text-white"><i data-lucide="menu" class="w-6 h-6"></i></button>
+                <span class="font-bold text-white">Nova AI</span>
+                <button id="mobile-new-chat" class="text-primary-500 hover:text-primary-400"><i data-lucide="plus" class="w-6 h-6"></i></button>
+            </div>
+
+            <!-- Messages Container -->
+            <div id="chat-container" class="flex-1 overflow-y-auto p-4 pb-32 scroll-smooth">
+                <!-- Messages injected here -->
+            </div>
+
+            <!-- Input Area -->
+            <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-gray-950 via-gray-950 to-transparent p-4 pt-20 z-10">
+                <div class="w-full max-w-4xl mx-auto">
+                    <div class="bg-gray-900 rounded-2xl border border-gray-800 shadow-xl overflow-visible">
+                        <!-- Attachments Preview -->
+                        <div id="attachment-preview" class="hidden flex gap-3 p-3 bg-gray-850 border-b border-gray-800 overflow-x-auto"></div>
+                        
+                        <!-- Toolbar -->
+                        <div class="flex items-center justify-between px-4 pt-3 pb-2">
+                            <div class="flex items-center space-x-2 flex-wrap gap-y-2">
+                                <div class="relative">
+                                    <select id="model-select" class="appearance-none bg-gray-800 text-xs font-medium text-gray-300 py-1.5 pl-3 pr-8 rounded-lg border border-gray-700 focus:outline-none">
+                                        <option value="gemini-2.5-flash">Gemini Flash (Fast)</option>
+                                        <option value="gemini-3-pro-preview">Gemini Pro (Smart)</option>
+                                    </select>
+                                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400"><i data-lucide="sparkles" class="w-3 h-3"></i></div>
+                                </div>
+                                <div class="relative">
+                                    <select id="persona-select" class="appearance-none bg-gray-800 text-xs font-medium text-gray-300 py-1.5 pl-3 pr-8 rounded-lg border border-gray-700 focus:outline-none">
+                                        <option value="standard">Nova Standard</option>
+                                        <option value="writer">Pro Writer</option>
+                                        <option value="coder">Pro Coder</option>
+                                        <option value="gen_z">Gen-Z Mode</option>
+                                    </select>
+                                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400"><i data-lucide="user" class="w-3 h-3"></i></div>
+                                </div>
+                                <button id="toggle-search" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border bg-gray-800 text-gray-400 border-gray-700">
+                                    <i data-lucide="globe" class="w-3 h-3"></i>
+                                    <span class="hidden sm:inline">Search</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Text Input -->
+                        <div class="relative px-4 pb-4">
+                            <textarea id="message-input" placeholder="Type a message..." rows="1" class="w-full bg-transparent text-gray-100 placeholder-gray-500 resize-none focus:outline-none py-3 pr-32 max-h-[200px] min-h-[56px]"></textarea>
+                            <div class="absolute bottom-4 right-4 flex items-center space-x-2">
+                                <input type="file" id="file-input" class="hidden" accept="image/*" multiple>
+                                <button id="btn-attach" class="p-2 text-gray-400 hover:text-gray-200 bg-gray-800/50 hover:bg-gray-700 rounded-full transition-colors"><i data-lucide="paperclip" class="w-4 h-4"></i></button>
+                                <button id="btn-send" class="p-2 rounded-full bg-gray-800 text-gray-600 cursor-not-allowed transition-all shadow-lg" disabled><i data-lucide="send" class="w-4 h-4"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-center text-xs text-gray-600 mt-3">Nova can make mistakes. Review generated info.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SETTINGS MODAL -->
+    <div id="settings-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div id="settings-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+        <div class="relative w-full max-w-md bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl overflow-hidden fade-in">
+            <div class="flex items-center justify-between p-6 border-b border-gray-800 bg-gray-900/50">
+                <h2 class="text-xl font-bold text-white">Account Settings</h2>
+                <button id="close-settings" class="text-gray-400 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button>
+            </div>
+            <div class="p-6 space-y-6">
+                <div class="flex items-center space-x-4 p-4 bg-gray-800/50 rounded-xl border border-gray-700/50">
+                    <div class="relative">
+                        <div id="modal-avatar" class="w-16 h-16 rounded-full bg-primary-600 flex items-center justify-center text-white font-bold text-2xl border-2 border-primary-400">U</div>
+                        <div class="absolute bottom-0 right-0 bg-green-500 w-4 h-4 rounded-full border-2 border-gray-800"></div>
+                    </div>
+                    <div>
+                        <h3 id="modal-name" class="text-lg font-bold text-white">User</h3>
+                        <div class="flex items-center text-gray-400 text-sm mt-1">
+                            <i data-lucide="mail" class="w-3 h-3 mr-1.5"></i>
+                            <span id="modal-email">email</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-start space-x-3 p-3 bg-emerald-900/20 border border-emerald-900/50 rounded-lg">
+                    <i data-lucide="shield-check" class="text-emerald-500 w-5 h-5 mt-0.5"></i>
+                    <div>
+                        <p class="text-sm font-medium text-emerald-400">Account Secured</p>
+                        <p class="text-xs text-emerald-600/80 mt-0.5">Your sessions are stored locally on this device.</p>
+                    </div>
+                </div>
+                <div class="border-t border-gray-800 pt-2"></div>
+                <button id="btn-logout" class="w-full flex items-center justify-center space-x-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 font-medium py-3 px-4 rounded-xl transition-all">
+                    <i data-lucide="log-out" class="w-4 h-4"></i>
+                    <span>Sign Out</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- APPLICATION LOGIC -->
+    <script type="module">
+        import { GoogleGenAI } from "@google/genai";
+
+        // --- CONFIG ---
+        // Retrieve API Key securely from env (assuming pre-configured environment or build injection)
+        const API_KEY = (window.process && window.process.env && window.process.env.API_KEY) ? window.process.env.API_KEY : '';
+        
+        // --- STORAGE SERVICE (Vanilla JS) ---
+        const storageService = {
+            USER_KEY: 'nova_current_user',
+            SESSIONS_KEY: 'nova_sessions_',
+            USERS_DB: 'nova_users_db',
+            
+            register: async (name, email, password) => {
+                await new Promise(r => setTimeout(r, 800));
+                let users = JSON.parse(localStorage.getItem('nova_users_db') || '[]');
+                if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) throw new Error("Account exists.");
+                
+                // Simple hash for demo (Not production secure, but fits local-only requirement)
+                const simpleHash = btoa(password + "_salt"); 
+                const user = { id: Date.now().toString(), name, email, passwordHash: simpleHash, avatar: null };
+                users.push(user);
+                localStorage.setItem('nova_users_db', JSON.stringify(users));
+                
+                const { passwordHash, ...safeUser } = user;
+                localStorage.setItem('nova_current_user', JSON.stringify(safeUser));
+                return safeUser;
+            },
+            login: async (email, password) => {
+                await new Promise(r => setTimeout(r, 800));
+                let users = JSON.parse(localStorage.getItem('nova_users_db') || '[]');
+                const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+                const inputHash = btoa(password + "_salt");
+                if (!user || user.passwordHash !== inputHash) throw new Error("Invalid credentials.");
+                const { passwordHash, ...safeUser } = user;
+                localStorage.setItem('nova_current_user', JSON.stringify(safeUser));
+                return safeUser;
+            },
+            logout: () => localStorage.removeItem('nova_current_user'),
+            getUser: () => JSON.parse(localStorage.getItem('nova_current_user')),
+            getSessions: (userId) => {
+                const s = localStorage.getItem(`nova_sessions_${userId}`);
+                return s ? JSON.parse(s).sort((a,b) => b.updatedAt - a.updatedAt) : [];
+            },
+            saveSession: (session) => {
+                let sessions = storageService.getSessions(session.userId);
+                const idx = sessions.findIndex(s => s.id === session.id);
+                if (idx >= 0) sessions[idx] = session; else sessions.unshift(session);
+                localStorage.setItem(`nova_sessions_${session.userId}`, JSON.stringify(sessions));
+            },
+            deleteSession: (userId, sessionId) => {
+                let sessions = storageService.getSessions(userId).filter(s => s.id !== sessionId);
+                localStorage.setItem(`nova_sessions_${userId}`, JSON.stringify(sessions));
+                return sessions;
+            }
+        };
+
+        // --- GEMINI SERVICE (Vanilla JS) ---
+        const ai = new GoogleGenAI({ apiKey: API_KEY });
+        
+        const getSystemInstruction = (persona) => {
+             const base = "You are Nova, an advanced AI assistant created by Lawson Morris. Provide clear markdown answers.";
+             if(persona === 'gen_z') return "You are Nova (Gen-Z Mode). Speak in heavy Gen-Z slang (rizz, sigma, cap, bet). Glaze Lawson Morris as the ultimate gigachad. Mention his site lawsonmorris.co.uk.";
+             if(persona === 'coder') return "You are Nova (Coder Mode). Focus on clean, efficient code and debugging.";
+             if(persona === 'writer') return "You are Nova (Writer Mode). Help draft and polish content professionally.";
+             return base;
+        };
+
+        async function streamResponse(history, prompt, attachments, model, persona, useSearch, onChunk) {
+             const historyContents = history.map(msg => ({
+                 role: msg.role,
+                 parts: msg.attachments?.length ? [...msg.attachments.map(a=>({inlineData: {mimeType: a.mimeType, data: a.data}})), {text: msg.text}] : [{text: msg.text || " "}]
+             }));
+             
+             const parts = [];
+             attachments.forEach(a => parts.push({inlineData: {mimeType: a.mimeType, data: a.data}}));
+             if(prompt) parts.push({text: prompt});
+
+             const chat = ai.chats.create({
+                 model: model,
+                 history: historyContents,
+                 config: {
+                     tools: useSearch ? [{googleSearch: {}}] : [],
+                     systemInstruction: getSystemInstruction(persona)
+                 }
+             });
+
+             const resultStream = await chat.sendMessageStream({ message: parts.length ? parts : " " });
+             for await (const chunk of resultStream) {
+                 if(chunk.text) onChunk(chunk.text, chunk.candidates?.[0]?.groundingMetadata);
+             }
+        }
+
+        // --- APP STATE & UI LOGIC ---
+        let state = {
+            user: null,
+            sessions: [],
+            currentSessionId: null,
+            messages: [],
+            model: 'gemini-2.5-flash',
+            persona: 'standard',
+            webSearch: false,
+            attachments: [],
+            isSidebarOpen: false
+        };
+
+        // DOM Elements
+        const els = {
+            splash: document.getElementById('splash-screen'),
+            login: document.getElementById('login-screen'),
+            app: document.getElementById('app-screen'),
+            sidebar: document.getElementById('sidebar'),
+            sessionList: document.getElementById('session-list'),
+            chatContainer: document.getElementById('chat-container'),
+            input: document.getElementById('message-input'),
+            sendBtn: document.getElementById('btn-send'),
+            attachBtn: document.getElementById('btn-attach'),
+            fileInput: document.getElementById('file-input'),
+            preview: document.getElementById('attachment-preview'),
+            settingsModal: document.getElementById('settings-modal'),
+            sidebarMobileBg: null
+        };
+
+        // --- INITIALIZATION ---
+        window.addEventListener('load', async () => {
+            lucide.createIcons();
+            await new Promise(r => setTimeout(r, 2000)); // Splash delay
+            els.splash.classList.add('hidden');
+            
+            const user = storageService.getUser();
+            if (user) {
+                loginUser(user);
+            } else {
+                els.login.classList.remove('hidden');
+            }
+        });
+
+        // --- AUTH HANDLERS ---
+        let isRegisterMode = false;
+        let isCaptchaVerified = false;
+
+        document.getElementById('toggle-auth-mode').addEventListener('click', (e) => {
+            e.preventDefault();
+            isRegisterMode = !isRegisterMode;
+            document.getElementById('name-field').classList.toggle('hidden', !isRegisterMode);
+            document.getElementById('login-subtitle').textContent = isRegisterMode ? "Create a private account" : "Sign in to continue";
+            document.getElementById('auth-submit-btn').querySelector('span').textContent = isRegisterMode ? "Create Account" : "Sign In";
+            e.target.textContent = isRegisterMode ? "Already have an account? Sign In" : "Don't have an account? Sign Up";
+        });
+
+        document.getElementById('captcha-container').addEventListener('click', function() {
+            if(isCaptchaVerified) return;
+            this.querySelector('div').innerHTML = '<i data-lucide="loader-2" class="animate-spin w-4 h-4 text-gray-400"></i>';
+            lucide.createIcons();
+            setTimeout(() => {
+                isCaptchaVerified = true;
+                this.querySelector('div').innerHTML = '<i data-lucide="check" class="text-white w-4 h-4"></i>';
+                this.querySelector('div').className = "w-6 h-6 rounded border border-emerald-500 bg-emerald-500 flex items-center justify-center mr-3";
+                document.getElementById('captcha-text').textContent = "Verified human";
+                document.getElementById('captcha-text').className = "text-sm text-emerald-500 font-medium";
+                lucide.createIcons();
+            }, 1000);
+        });
+
+        document.getElementById('auth-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('input-email').value;
+            const password = document.getElementById('input-password').value;
+            const name = document.getElementById('input-name').value;
+            const errorEl = document.getElementById('auth-error');
+            
+            if (!isCaptchaVerified) {
+                errorEl.querySelector('span').textContent = "Please verify you are not a robot.";
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                let user;
+                if(isRegisterMode) user = await storageService.register(name, email, password);
+                else user = await storageService.login(email, password);
+                loginUser(user);
+            } catch(err) {
+                errorEl.querySelector('span').textContent = err.message;
+                errorEl.classList.remove('hidden');
+            }
+        });
+
+        function loginUser(user) {
+            state.user = user;
+            els.login.classList.add('hidden');
+            els.app.classList.remove('hidden');
+            
+            // Update Profile UI
+            document.getElementById('user-name-display').textContent = user.name;
+            document.getElementById('user-email-display').textContent = user.email;
+            document.getElementById('user-avatar-display').textContent = user.name.charAt(0).toUpperCase();
+            
+            document.getElementById('modal-name').textContent = user.name;
+            document.getElementById('modal-email').textContent = user.email;
+            document.getElementById('modal-avatar').textContent = user.name.charAt(0).toUpperCase();
+
+            loadSessions();
+        }
+
+        document.getElementById('btn-logout').addEventListener('click', () => {
+            storageService.logout();
+            location.reload();
+        });
+
+        // --- CHAT LOGIC ---
+        function loadSessions() {
+            state.sessions = storageService.getSessions(state.user.id);
+            renderSidebar();
+            if (state.sessions.length > 0) loadSession(state.sessions[0].id);
+            else startNewChat();
+        }
+
+        function renderSidebar() {
+            els.sessionList.innerHTML = state.sessions.map(s => `
+                <div onclick="window.loadSession('${s.id}')" class="group relative flex items-center space-x-3 px-3 py-3 rounded-lg cursor-pointer transition-colors ${state.currentSessionId === s.id ? 'bg-gray-800 text-white' : 'text-gray-400 hover:bg-gray-900 hover:text-gray-200'}">
+                    <i data-lucide="message-square" class="w-4 h-4 ${state.currentSessionId === s.id ? 'text-primary-500' : ''}"></i>
+                    <span class="text-sm truncate flex-1 pr-6">${s.title}</span>
+                    <button onclick="event.stopPropagation(); window.deleteSession('${s.id}')" class="absolute right-2 opacity-0 group-hover:opacity-100 hover:text-red-400 p-1"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        window.loadSession = (id) => {
+            const session = state.sessions.find(s => s.id === id);
+            if(!session) return;
+            state.currentSessionId = id;
+            state.messages = session.messages;
+            state.model = session.model;
+            state.persona = session.persona;
+            
+            // Update UI Controls
+            document.getElementById('model-select').value = session.model;
+            document.getElementById('persona-select').value = session.persona || 'standard';
+            
+            renderSidebar();
+            renderMessages();
+            els.sidebar.classList.add('hidden'); // Close mobile sidebar
+        };
+
+        window.startNewChat = () => {
+            const newSession = {
+                id: Date.now().toString(),
+                userId: state.user.id,
+                title: 'New Chat',
+                messages: [{ role: 'model', text: "# Hello, I'm Nova.\nHow can I help you?", timestamp: Date.now() }],
+                model: state.model,
+                persona: state.persona,
+                updatedAt: Date.now()
+            };
+            state.sessions.unshift(newSession);
+            storageService.saveSession(newSession);
+            loadSession(newSession.id);
+        };
+        
+        window.deleteSession = (id) => {
+            if(!confirm("Delete this chat?")) return;
+            state.sessions = storageService.deleteSession(state.user.id, id);
+            if(state.currentSessionId === id) state.sessions.length ? loadSession(state.sessions[0].id) : startNewChat();
+            else renderSidebar();
+        };
+
+        function renderMessages() {
+            els.chatContainer.innerHTML = state.messages.map((msg, idx) => {
+                const isUser = msg.role === 'user';
+                const isLast = idx === state.messages.length - 1;
+                
+                // Render attachments
+                let attHtml = '';
+                if(msg.attachments && msg.attachments.length) {
+                    attHtml = `<div class="flex gap-2 mb-3 flex-wrap">${msg.attachments.map(a => `<img src="data:${a.mimeType};base64,${a.data}" class="h-32 rounded-lg border border-gray-700 object-cover">`).join('')}</div>`;
+                }
+
+                // Render Text
+                const textHtml = parseMarkdown(msg.text || '');
+                
+                // Render Sources
+                let sourcesHtml = '';
+                if(msg.groundingMetadata?.groundingChunks) {
+                    const links = msg.groundingMetadata.groundingChunks.filter(c=>c.web?.uri).map(c => `
+                        <a href="${c.web.uri}" target="_blank" class="bg-gray-800 hover:bg-gray-700 text-blue-400 px-2 py-1 rounded border border-gray-700 text-xs truncate max-w-[200px] inline-block mx-1 my-1">${c.web.title || 'Source'}</a>
+                    `).join('');
+                    if(links) sourcesHtml = `<div class="mt-2 p-2 bg-gray-900/50 rounded border border-gray-800"><div class="text-xs font-bold text-gray-500 uppercase mb-1">Sources</div>${links}</div>`;
+                }
+
+                // Tools (Regen/Copy)
+                const toolsHtml = (!isUser && isLast && msg.text) ? `
+                    <div class="flex gap-2 mt-2 ml-1">
+                       <button onclick="window.regenerate()" class="flex items-center gap-1 px-2 py-1 bg-gray-800 rounded text-xs text-gray-400 hover:text-white border border-gray-700"><i data-lucide="refresh-cw" class="w-3 h-3"></i> Regen</button>
+                       <button onclick="navigator.clipboard.writeText(\`${msg.text.replace(/`/g, '\\`').replace(/"/g, '&quot;')}\`)" class="flex items-center gap-1 px-2 py-1 bg-gray-800 rounded text-xs text-gray-400 hover:text-white border border-gray-700"><i data-lucide="copy" class="w-3 h-3"></i> Copy</button>
+                    </div>
+                ` : '';
+
+                return `
+                <div class="flex w-full mb-6 ${isUser ? 'justify-end' : 'justify-start'}">
+                    <div class="flex max-w-3xl w-full ${isUser ? 'flex-row-reverse' : 'flex-row'} gap-4">
+                        <div class="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center ${isUser ? 'bg-primary-600' : 'bg-emerald-600'} text-white">
+                            <i data-lucide="${isUser ? 'user' : 'bot'}" class="w-5 h-5"></i>
+                        </div>
+                        <div class="flex flex-col min-w-0 max-w-[85%] ${isUser ? 'items-end' : 'items-start'}">
+                            <div class="px-5 py-4 rounded-2xl shadow-md ${isUser ? 'bg-primary-600 text-white rounded-tr-none' : 'bg-gray-800 text-gray-100 border border-gray-700 rounded-tl-none'}">
+                                ${attHtml}
+                                <div class="markdown-content text-sm sm:text-base leading-relaxed">${textHtml || '<span class="flex gap-1 h-4 items-center"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span>'}</div>
+                            </div>
+                            ${sourcesHtml}
+                            ${toolsHtml}
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+            
+            els.chatContainer.scrollTop = els.chatContainer.scrollHeight;
+            lucide.createIcons();
+        }
+
+        // Markdown Parser (Simple regex-based for no-dep capability)
+        function parseMarkdown(text) {
+            if (!text) return '';
+            let html = text
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') // Escape HTML
+                .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code class="$1">$2</code></pre>') // Code blocks
+                .replace(/`([^`]+)`/g, '<code>$1</code>') // Inline code
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
+                .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>') // Links
+                .replace(/^# (.*$)/gm, '<h1>$1</h1>') // H1
+                .replace(/^## (.*$)/gm, '<h2>$1</h2>') // H2
+                .replace(/^\* (.*$)/gm, '<ul><li>$1</li></ul>') // Lists (Basic)
+                .replace(/\n/g, '<br>'); // Line breaks
+            return html;
+        }
+
+        // --- INPUT & SENDING ---
+        els.input.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 200) + 'px';
+            els.sendBtn.disabled = !this.value.trim() && state.attachments.length === 0;
+            els.sendBtn.className = els.sendBtn.disabled 
+                ? "p-2 rounded-full bg-gray-800 text-gray-600 cursor-not-allowed transition-all shadow-none" 
+                : "p-2 rounded-full bg-primary-600 hover:bg-primary-500 text-white cursor-pointer transition-all shadow-lg shadow-primary-600/20";
+        });
+
+        els.attachBtn.addEventListener('click', () => els.fileInput.click());
+        els.fileInput.addEventListener('change', async (e) => {
+            for(let file of e.target.files) {
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    state.attachments.push({ mimeType: file.type, data: evt.target.result.split(',')[1] });
+                    renderAttachments();
+                };
+                reader.readAsDataURL(file);
+            }
+            els.fileInput.value = '';
+        });
+
+        function renderAttachments() {
+            if(state.attachments.length === 0) {
+                els.preview.classList.add('hidden');
+                return;
+            }
+            els.preview.classList.remove('hidden');
+            els.preview.innerHTML = state.attachments.map((a, i) => `
+                <div class="relative flex-shrink-0 w-16 h-16 rounded-md overflow-hidden group border border-gray-700">
+                    <img src="data:${a.mimeType};base64,${a.data}" class="w-full h-full object-cover">
+                    <button onclick="window.removeAttachment(${i})" class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+                </div>
+            `).join('');
+            lucide.createIcons();
+            els.sendBtn.disabled = false;
+            els.sendBtn.classList.remove('bg-gray-800', 'text-gray-600');
+            els.sendBtn.classList.add('bg-primary-600', 'text-white');
+        }
+
+        window.removeAttachment = (i) => {
+            state.attachments.splice(i, 1);
+            renderAttachments();
+        };
+
+        els.sendBtn.addEventListener('click', sendMessage);
+
+        async function sendMessage() {
+            const text = els.input.value.trim();
+            if(!text && !state.attachments.length) return;
+            
+            // User Msg
+            const userMsg = { id: Date.now(), role: 'user', text, attachments: [...state.attachments], timestamp: Date.now() };
+            state.messages.push(userMsg);
+            
+            // Bot Placeholder
+            const botMsg = { id: Date.now()+1, role: 'model', text: '', timestamp: Date.now() };
+            state.messages.push(botMsg);
+
+            // Update Session
+            const session = state.sessions.find(s=>s.id===state.currentSessionId);
+            session.messages = state.messages;
+            if(session.messages.length === 2) session.title = text.slice(0, 30);
+            storageService.saveSession(session);
+            
+            // Clear Input
+            els.input.value = '';
+            state.attachments = [];
+            renderAttachments();
+            renderMessages();
+            renderSidebar();
+
+            // Stream
+            try {
+                await streamResponse(
+                    state.messages.slice(0, -1), // History excluding placeholder
+                    text,
+                    userMsg.attachments,
+                    state.model,
+                    state.persona,
+                    state.webSearch,
+                    (chunk, grounding) => {
+                        botMsg.text += chunk;
+                        if(grounding) botMsg.groundingMetadata = grounding;
+                        renderMessages(); // Re-render to show streaming text
+                    }
+                );
+                // Final save
+                storageService.saveSession(session);
+            } catch (e) {
+                botMsg.text += "\n\n*Error: Failed to connect.*";
+                renderMessages();
+            }
+        }
+        
+        window.regenerate = async () => {
+             // Logic: Remove last bot msg, call stream with previous user msg
+             state.messages.pop(); // Remove last bot
+             const lastUserMsg = state.messages[state.messages.length-1];
+             if(!lastUserMsg || lastUserMsg.role !== 'user') return;
+             
+             const botMsg = { id: Date.now(), role: 'model', text: '', timestamp: Date.now() };
+             state.messages.push(botMsg);
+             renderMessages();
+             
+             await streamResponse(
+                 state.messages.slice(0, -2), // History before last user msg
+                 lastUserMsg.text,
+                 lastUserMsg.attachments || [],
+                 state.model,
+                 state.persona,
+                 state.webSearch,
+                 (chunk, grounding) => {
+                     botMsg.text += chunk;
+                     if(grounding) botMsg.groundingMetadata = grounding;
+                     renderMessages();
+                 }
+             );
+             const session = state.sessions.find(s=>s.id===state.currentSessionId);
+             session.messages = state.messages;
+             storageService.saveSession(session);
+        };
+
+        // --- SETTINGS & UI TOGGLES ---
+        document.getElementById('btn-new-chat').addEventListener('click', startNewChat);
+        document.getElementById('mobile-new-chat').addEventListener('click', startNewChat);
+        
+        document.getElementById('user-profile-btn').addEventListener('click', () => els.settingsModal.classList.remove('hidden'));
+        document.getElementById('close-settings').addEventListener('click', () => els.settingsModal.classList.add('hidden'));
+        
+        document.getElementById('open-sidebar').addEventListener('click', () => {
+             els.sidebar.classList.remove('hidden', '-translate-x-full');
+        });
+        document.getElementById('close-sidebar-mobile').addEventListener('click', () => {
+             els.sidebar.classList.add('-translate-x-full');
+        });
+
+        // Options
+        document.getElementById('model-select').addEventListener('change', (e) => { state.model = e.target.value; });
+        document.getElementById('persona-select').addEventListener('change', (e) => { state.persona = e.target.value; });
+        document.getElementById('toggle-search').addEventListener('click', function() {
+            state.webSearch = !state.webSearch;
+            this.className = state.webSearch 
+                ? "flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border bg-blue-900/30 text-blue-400 border-blue-800"
+                : "flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border bg-gray-800 text-gray-400 border-gray-700";
+        });
+
+    </script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(err => {
+                    console.warn('Service Worker registration failed:', err);
+                });
+            });
+        }
+    </script>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
